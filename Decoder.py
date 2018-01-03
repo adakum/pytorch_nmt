@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
-
+from ff import *
 
 class StackedLSTMCell(nn.Module):
     def __init__(self, num_layers, input_size, hidden_size, dropout, bias):
@@ -19,20 +19,28 @@ class StackedLSTMCell(nn.Module):
     def forward(self, input, hidden):
         # input (batch_size * input_size)
         # hidden (num_layers * hidden_size )
-        h_0, c_0 = hidden
-        hs, cs = [], []
+        h_prev, c_prev = hidden
+        h_next, c_next = [], []
+        
         for i, layer in enumerate(self.layers):
-            h_i, c_i = layer(input, (h_0[i], c_0[i]))
+            
+            print(" Layer {}".format(layer))
+            print(" Input {}".format(input.shape))
+            print(" h_t {}".format(h_prev[i].shape))
+
+            h_i, c_i = layer(input, (h_prev[i], c_prev[i]))
             input = h_i
+            
             if i != self.num_layers - 1:
                 input = self.dropout(input)
-            hs += [h_i]
-            cs += [c_i]
+            
+            h_next += [h_i]
+            c_next += [c_i]
 
-        hs = torch.stack(hs)
-        cs = torch.stack(cs)
+        h_next = torch.stack(h_next)
+        c_next = torch.stack(c_next)
 
-        return input, (hs, cs)
+        return input, (h_next, c_next)
 
 
 class Decoder(nn.Module):
@@ -65,25 +73,29 @@ class Decoder(nn.Module):
 
 		self.out2prob = FF(hidden_size, n_vocab)
 
-	def forward(self, dec_input, enc_outputs, h_t):
+	def forward(self, dec_input, enc_outputs, h_t = None):
 		# dec_input  :  time_steps * batch_size
 
 		# embed dec input
 		emb_inp = self.emb(dec_input)
 
 		h_o, c_o = h_t
-		for time in emb_inp.shape[0]:
+
+		# last index in EOS , so -1
+		loss = 0
+		for time in range(emb_inp.shape[0]-1):
 			inp_i = emb_inp[time]
+			print(type(inp_i))
+			print(inp_i.shape)
 			output, (h_o, c_o) = self.rnn_cell(inp_i, (h_o, c_o))
 
-			# project this output 
-			logits = self.out2prob(output)
+			# project this output
+			# output :  batchsize * hiddensize
+			log_prob = -F.log_softmax(self.out2prob(output), dim=-1)
 
+			# confirm not last, last is <EOS> 
+			if time != emb_inp.shape[0]: 
+				# loss += F.nll_loss(log_prob, y[t+1])
+				loss += torch.gather(log_prob, dim = 1, index = dec_input[time + 1].unsqueeze(1)).sum()
 
-
-
-
-
-
-
-
+		return loss
