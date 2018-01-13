@@ -13,4 +13,4 @@ h_t = Variable(torch.Tensor(1, 4, 3).uniform_(0, 1))
 c_t = Variable(torch.Tensor(1, 4, 3).uniform_(0, 1))
 
 print(dec)
-dec(inp, enc_outputs,  (h_t, c_t))
+print("Loss : {}".format(dec(inp, enc_outputs,  (h_t, c_t))))

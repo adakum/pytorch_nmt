@@ -16,12 +16,13 @@ class StackedLSTMCell(nn.Module):
             self.layers.append(nn.LSTMCell(input_size=input_size, hidden_size=hidden_size, bias=self.bias))
             input_size = hidden_size
 
+
     def forward(self, input, hidden):
         # input (batch_size * input_size)
         # hidden (num_layers * hidden_size )
         h_prev, c_prev = hidden
         h_next, c_next = [], []
-        
+		        
         for i, layer in enumerate(self.layers):
             
             print(" Layer {}".format(layer))
@@ -55,7 +56,11 @@ class Decoder(nn.Module):
 		self.n_vocab = n_vocab
 
 		# attn type
-		self.att_type = att_type
+		self.att_type = Attention
+		
+
+
+
 		self.dropout = dropout
 		self.cell_type = cell_type
 		# num layers
